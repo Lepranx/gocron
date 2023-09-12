@@ -63,6 +63,7 @@ type Task struct {
 	BaseModel        `json:"-" xorm:"-"`
 	Hosts            []TaskHostDetail `json:"hosts" xorm:"-"`
 	NextRunTime      time.Time        `json:"next_run_time" xorm:"-"`
+	UserId           int              `json:"user_id" xorm:"mediumint notnull default 0"`
 }
 
 func taskHostTableName() []string {
@@ -272,5 +273,11 @@ func (task *Task) parseWhere(session *xorm.Session, params CommonMap) {
 	tag, ok := params["Tag"]
 	if ok && tag.(string) != "" {
 		session.And("tag = ? ", tag)
+	}
+
+	// 新增查询参数
+	uid, ok := params["user_id"]
+	if ok && uid.(int) != 0 {
+		session.And("user_id = ? ", uid)
 	}
 }

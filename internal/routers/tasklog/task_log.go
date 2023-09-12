@@ -7,6 +7,7 @@ import (
 	"github.com/ouqiang/gocron/internal/modules/logger"
 	"github.com/ouqiang/gocron/internal/modules/utils"
 	"github.com/ouqiang/gocron/internal/routers/base"
+	"github.com/ouqiang/gocron/internal/routers/user"
 	"github.com/ouqiang/gocron/internal/service"
 	"gopkg.in/macaron.v1"
 )
@@ -14,6 +15,16 @@ import (
 func Index(ctx *macaron.Context) string {
 	logModel := new(models.TaskLog)
 	queryParams := parseQueryParams(ctx)
+	//新增权限控制
+	taskModel := new(models.Task)
+	task, err := taskModel.Detail(queryParams["TaskId"].(int))
+	if err != nil {
+		logger.Error(err)
+	}
+	if !user.IsAdmin(ctx) && task.UserId != user.Uid(ctx) {
+		json := utils.JsonResponse{}
+		return json.CommonFailure("您没有此项任务的权限")
+	}
 	total, err := logModel.Total(queryParams)
 	if err != nil {
 		logger.Error(err)
@@ -47,11 +58,16 @@ func Stop(ctx *macaron.Context) string {
 	id := ctx.QueryInt64("id")
 	taskId := ctx.QueryInt("task_id")
 	taskModel := new(models.Task)
-	task, err := taskModel.Detail(taskId)
 	json := utils.JsonResponse{}
+	task, err := taskModel.Detail(taskId)
 	if err != nil {
 		return json.CommonFailure("获取任务信息失败#"+err.Error(), err)
 	}
+	// 新增权限控制
+	if !user.IsAdmin(ctx) && task.UserId != user.Uid(ctx) {
+		return json.CommonFailure("您没有此项任务的权限")
+	}
+
 	if task.Protocol != models.TaskRPC {
 		return json.CommonFailure("仅支持SHELL任务手动停止")
 	}

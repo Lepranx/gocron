@@ -59,12 +59,18 @@ const router = new Router({
     {
       path: '/task/create',
       name: 'task-create',
-      component: TaskEdit
+      component: TaskEdit,
+      meta: {
+        noNeedAdmin: true
+      }
     },
     {
       path: '/task/edit/:id',
       name: 'task-edit',
-      component: TaskEdit
+      component: TaskEdit,
+      meta: {
+        noNeedAdmin: true
+      }
     },
     {
       path: '/task/log',

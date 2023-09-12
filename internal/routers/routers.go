@@ -253,6 +253,12 @@ func urlAuth(ctx *macaron.Context) {
 		"/install/status",
 		"/task",
 		"/task/log",
+		"/task/create",
+		"/task/edit",
+		"/task/undefined",
+		"/task/store",
+		"/system/mail",
+		"/system/slack",
 		"/host",
 		"/host/all",
 		"/user/login",
@@ -262,11 +268,16 @@ func urlAuth(ctx *macaron.Context) {
 		if path == uri {
 			return
 		}
+		// 接口为/task/4的情况
+		if strings.Contains(uri, "/task/") {
+			return
+		}
 	}
 
 	jsonResp := utils.JsonResponse{}
 
-	data := jsonResp.Failure(utils.UnauthorizedError, "您无权限访问")
+	// 调试便利
+	data := jsonResp.Failure(utils.UnauthorizedError, "您无权限访问"+ctx.Req.URL.Path)
 	ctx.Write([]byte(data))
 }
 
