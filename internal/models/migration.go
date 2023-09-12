@@ -235,3 +235,19 @@ func (m *Migration) upgradeFor150(session *xorm.Session) error {
 
 	return nil
 }
+
+// 支持 user_id
+func (migration *Migration) UpgradeForTaskUserId(session *xorm.Session) error {
+
+	tableName := TablePrefix + "task"
+
+	sql := fmt.Sprintf(
+		"ALTER TABLE %s ADD COLUMN user_id mediumint NOT NULL DEFAULT 0", tableName)
+	_, err := session.Exec(sql)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+}

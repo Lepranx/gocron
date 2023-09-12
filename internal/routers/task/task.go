@@ -12,6 +12,7 @@ import (
 	"github.com/ouqiang/gocron/internal/modules/logger"
 	"github.com/ouqiang/gocron/internal/modules/utils"
 	"github.com/ouqiang/gocron/internal/routers/base"
+	"github.com/ouqiang/gocron/internal/routers/user"
 	"github.com/ouqiang/gocron/internal/service"
 	"gopkg.in/macaron.v1"
 )
@@ -51,16 +52,30 @@ func (f TaskForm) Error(ctx *macaron.Context, errs binding.Errors) {
 
 // 首页
 func Index(ctx *macaron.Context) string {
+	var (
+		tasks []models.Task
+	)
 	taskModel := new(models.Task)
 	queryParams := parseQueryParams(ctx)
 	total, err := taskModel.Total(queryParams)
 	if err != nil {
 		logger.Error(err)
 	}
-	tasks, err := taskModel.List(queryParams)
-	if err != nil {
-		logger.Error(err)
+	// 管理员查看所有
+	if user.IsAdmin(ctx) {
+		tasks, err = taskModel.List(queryParams)
+		if err != nil {
+			logger.Error(err)
+		}
+	} else {
+		// 普通用户限制查看自己的列表
+		queryParams["user_id"] = user.Uid(ctx)
+		tasks, err = taskModel.List(queryParams)
+		if err != nil {
+			logger.Error(err)
+		}
 	}
+
 	for i, item := range tasks {
 		tasks[i].NextRunTime = service.ServiceTask.NextRunTime(item)
 	}
@@ -78,7 +93,8 @@ func Detail(ctx *macaron.Context) string {
 	taskModel := new(models.Task)
 	task, err := taskModel.Detail(id)
 	jsonResp := utils.JsonResponse{}
-	if err != nil || task.Id == 0 {
+	// 新增权限限制
+	if err != nil || task.Id == 0 || (!user.IsAdmin(ctx) && task.UserId != user.Uid(ctx)) {
 		logger.Errorf("编辑任务#获取任务详情失败#任务ID-%d", id)
 		return jsonResp.Success(utils.SuccessContent, nil)
 	}
@@ -172,9 +188,22 @@ func Store(ctx *macaron.Context, form TaskForm) string {
 	if id == 0 {
 		// 任务添加后开始调度执行
 		taskModel.Status = models.Running
+		// 确定任务所属用户
+		taskModel.UserId = user.Uid(ctx)
 		id, err = taskModel.Create()
 	} else {
+		// 新增权限控制
+		taskInfo, err := taskModel.Detail(id)
+		if err != nil {
+			return json.CommonFailure("系统错误", err)
+		}
+		if !user.IsAdmin(ctx) && taskInfo.UserId != user.Uid(ctx) {
+			return json.CommonFailure("您没有此项任务的权限")
+		}
 		_, err = taskModel.UpdateBean(id)
+		if err != nil {
+			return json.CommonFailure("系统错误", err)
+		}
 	}
 
 	if err != nil {
@@ -206,7 +235,17 @@ func Remove(ctx *macaron.Context) string {
 	id := ctx.ParamsInt(":id")
 	json := utils.JsonResponse{}
 	taskModel := new(models.Task)
-	_, err := taskModel.Delete(id)
+
+	// 新增权限控制
+	taskInfo, err := taskModel.Detail(id)
+	if err != nil {
+		return json.CommonFailure("系统错误", err)
+	}
+	if !user.IsAdmin(ctx) && taskInfo.UserId != user.Uid(ctx) {
+		return json.CommonFailure("您没有此项任务的权限")
+	}
+
+	_, err = taskModel.Delete(id)
 	if err != nil {
 		return json.CommonFailure(utils.FailureContent, err)
 	}
@@ -235,7 +274,8 @@ func Run(ctx *macaron.Context) string {
 	json := utils.JsonResponse{}
 	taskModel := new(models.Task)
 	task, err := taskModel.Detail(id)
-	if err != nil || task.Id <= 0 {
+	// 新增权限控制
+	if err != nil || task.Id <= 0 || (!user.IsAdmin(ctx) && task.UserId != user.Uid(ctx)) {
 		return json.CommonFailure("获取任务详情失败", err)
 	}
 
@@ -250,7 +290,17 @@ func changeStatus(ctx *macaron.Context, status models.Status) string {
 	id := ctx.ParamsInt(":id")
 	json := utils.JsonResponse{}
 	taskModel := new(models.Task)
-	_, err := taskModel.Update(id, models.CommonMap{
+
+	// 新增权限控制
+	taskInfo, err := taskModel.Detail(id)
+	if err != nil {
+		return json.CommonFailure("系统错误", err)
+	}
+	if !user.IsAdmin(ctx) && taskInfo.UserId != user.Uid(ctx) {
+		return json.CommonFailure("您没有此项任务的权限")
+	}
+
+	_, err = taskModel.Update(id, models.CommonMap{
 		"status": status,
 	})
 	if err != nil {

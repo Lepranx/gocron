@@ -102,6 +102,10 @@ func initModule() {
 	// 初始化DB
 	models.Db = models.CreateDb()
 
+	//定制开发字段 记录任务用户
+	dev := models.Migration{}
+	dev.UpgradeForTaskUserId(models.Db.NewSession())
+
 	// 版本升级
 	upgradeIfNeed()
 
