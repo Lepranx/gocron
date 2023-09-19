@@ -44,7 +44,7 @@ func (taskLog *TaskLog) Update(id int64, data CommonMap) (int64, error) {
 func (taskLog *TaskLog) List(params CommonMap) ([]TaskLog, error) {
 	taskLog.parsePageAndPageSize(params)
 	list := make([]TaskLog, 0)
-	session := Db.Desc("id")
+	session := Db.Desc("task_log.id")
 	taskLog.parseWhere(session, params)
 	err := session.Limit(taskLog.PageSize, taskLog.pageLimitOffset()).Find(&list)
 	if len(list) > 0 {
@@ -84,6 +84,7 @@ func (taskLog *TaskLog) parseWhere(session *xorm.Session, params CommonMap) {
 	if len(params) == 0 {
 		return
 	}
+	session = session.Table("task_log")
 	taskId, ok := params["TaskId"]
 	if ok && taskId.(int) > 0 {
 		session.And("task_id = ?", taskId)
@@ -95,5 +96,11 @@ func (taskLog *TaskLog) parseWhere(session *xorm.Session, params CommonMap) {
 	status, ok := params["Status"]
 	if ok && status.(int) > -1 {
 		session.And("status = ?", status)
+	}
+
+	uid, ok := params["user_id"]
+	if ok && uid.(int) != 0 {
+		session.Join("INNER", "task", "task_log.task_id = task.id").
+			Where("task.user_id = ?", uid)
 	}
 }

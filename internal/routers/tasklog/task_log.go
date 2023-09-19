@@ -21,9 +21,14 @@ func Index(ctx *macaron.Context) string {
 	if err != nil {
 		logger.Error(err)
 	}
-	if !user.IsAdmin(ctx) && task.UserId != user.Uid(ctx) {
-		json := utils.JsonResponse{}
-		return json.CommonFailure("您没有此项任务的权限")
+	if task.Id != 0 {
+		if !user.IsAdmin(ctx) && task.UserId != user.Uid(ctx) {
+			json := utils.JsonResponse{}
+			return json.CommonFailure("您没有此项任务的权限")
+		}
+	}
+	if !user.IsAdmin(ctx) {
+		queryParams["user_id"] = user.Uid(ctx)
 	}
 	total, err := logModel.Total(queryParams)
 	if err != nil {
